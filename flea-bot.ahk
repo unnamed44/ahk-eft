@@ -2,7 +2,24 @@
 ;|  _  |  |  |  |  |___|   __|   __|_   _|
 ;|     |     |    -|___|   __|   __| | |  
 ;|__|__|__|__|__|__|   |_____|__|    |_|  
-;     AHK-EFT by BUDDGAF#0087
+;       AHK-EFT by BUDDGAF#0087
+;***************************************
+;              IMPORTANT
+;***************************************
+;re-shade, postfx, etc must be disabled
+;use only default color settings, script
+;depends on correct colored pixels. 
+;screen must be in 1920x1080 resolution
+;or all coords have to be changed. run
+;in borderless fullscreen. 
+;***************************************
+;BSG is not banning for AHK as of 6/20
+;hopefully they will warn the community
+;if they start. I have used this for a 
+;long time with no issue. however, you
+;***************************************
+; U S E  A T  Y O U R  O W N  R I S K.
+;***************************************
 
 ;environment/settings
 #NoEnv

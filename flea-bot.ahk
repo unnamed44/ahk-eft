@@ -1,18 +1,25 @@
-;EFT-Flip by BUDDGAF
+; _____ _____ _____     _____ _____ _____ 
+;|  _  |  |  |  |  |___|   __|   __|_   _|
+;|     |     |    -|___|   __|   __| | |  
+;|__|__|__|__|__|__|   |_____|__|    |_|  
+;     AHK-EFT by BUDDGAF#0087
+
+;environment/settings
 #NoEnv
 #Warn
-SendMode Input
-SetWorkingDir %A_ScriptDir% 
 #SingleInstance Force
 #WinActivateForce
+SendMode Input
+SetWorkingDir %A_ScriptDir% 
 SetTitleMatchMode 2
 SetBatchLines -1
 SetKeyDelay -1
 SetMouseDelay -1
-CoordMode, Pixel, Screen
 Thread, interrupt, 0
+CoordMode, Pixel, Screen
 
-F12::ExitApp		;F12 to exit
+;controls
+F12::ExitApp		        ;F12 to exit
 F5::Pause			;F5 to pause
 F1::				;F1 to start 
 

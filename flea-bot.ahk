@@ -1,60 +1,69 @@
-; _____ _____ _____     _____ _____ _____ 
-;|  _  |  |  |  |  |___|   __|   __|_   _|
-;|     |     |    -|___|   __|   __| | |  
-;|__|__|__|__|__|__|   |_____|__|    |_|  
-;      flea-bot by BUDDGAF#0087
-;environment/settings
+
+;╔════════════environment settings
+
 #NoEnv
 #Warn
 #SingleInstance Force
-#WinActivateForce
-#InstallKeybdHook
-SendMode, Event
 SetWorkingDir %A_ScriptDir% 
-SetTitleMatchMode 2
-;SetBatchLines -1
-;SetKeyDelay -1
-SetMouseDelay -1
 Thread, interrupt, 0
 CoordMode, Pixel, Screen
+;SetBatchLines,10ms
+;SetMouseDelay,-1
 
 
-;Session variables
+;╔════════════variables, strings, whatever
+
 attempts := 0
 errors := 0
 sold := 0
-space = y+5
+space = y+5 
 IsPaused := false
+status = Ready
+debug = debug_ready
+sellvar = 0
 
 
-Gui, +AlwaysOnTop -Caption +ToolWindow 0x800000
+;╔════════════the GUI
+
+MouseGetPos, MouseX, MouseY
+PixelGetColor, color, %MouseX%, %MouseY%, RGB
+;Gui, Font,  0xFFFFFF, Verdana
+;Gui, +AlwaysOnTop ;-Caption +ToolWindow 0x800000
+;WinSet,TransColor, 0x00000 100
+Gui Color, 0E0E10
+Gui Show, w1290 h500 x1920 y1200 NA, Window
+WinSet, Transparent, 250, Window,
+WinSet, Region, 20-2 W255 H500 R10-10, Window
+Gui, +ToolWindow -Caption +AlwaysOnTop
 Gui, Color, 0x000000
-Gui, Font, 0xFFFFFF, Verdana
-Gui, Add, Button, x140 w100 vPauseButton Default, Pause
-Gui, Add, Button, yp x10 w100 vStart gLoop Default, Start
-Gui, Add, Text, x10 %space% cLime, flea-bot 1.2 by BUDDGAF#0087
-Gui, Add, Text, %space% cWhite, [F1] START | [F5] PAUSE | [F12] EXIT
-Gui, Add, Text, cWhite, Cursor Pos / Color:
-Gui, Add, Text, %space% vMyText cWhite, Cursor Pos: xxxxxxxxxxx  ; XX & YY serve to auto-size the window.
-;Gui, Add, Text, vMycolor Cwhite, Color at Pos: %color%
-;Gui, Font, s12
-Gui, Add, Text, cLime, Status:
-Gui, Add, Progress, w200 h5 cBlue vMyProgress, 0
-Gui, Add, Text, %space% cWhite vDebug, Waiting on user...
-Gui, Show, x320 y50 w250 h260
-Gui, Add, Text, cRed, Session Stats:
-Gui, Add, Text, %space% cWhite vAttempts, Placeholder_text %attempts%
-Gui, Add, Text, %space% cWhite vErrors, Placeholder_text %errors%
-Gui, Add, Text, %space% cWhite vSold, Placeholder_text %sold%
-
-SetTimer, UpdateOSD, 100
+;CustomColor := "000000"  ; Can be any RGB color (it will be made transparent below).
+;Gui +LastFound +AlwaysOnTop -Caption +ToolWindow  ; +ToolWindow avoids a taskbar button and an alt-tab menu item.
+;Gui, Color, %CustomColor%
+Gui, Add, Text, %space% x50 cYellow, FLEA-BOT 1.3 for EFT 0.12.6 by BUDDGAF
+Gui, Add, Button, x190 w65 vPauseButton, Pause
+Gui, Add, Button, yp xp+80 x120 w65 vStop gExit Default, Stop
+Gui, Add, Button, yp x50 w65 vStart gLoop, Start
+;Gui, Add, Text, cWhite, Cursor Pos\Color: 
+Gui, Add, Text, %space% vMyText cWhite, Placeholder_text,Placeholder_text,Placeholder_text,
+Gui, Add, Text, %space% cRed vStat, Placeholder_text,Placeholder_text,
+Gui, Add, Text, %space% cWhite vDebug, Placeholder_text,Placeholder_text
+Gui, Add, Text, %space% cYellow, Session Stats: 
+Gui, Add, Text, %space% cWhite vAttempts, Placeholder_text,
+Gui, Add, Text, %space% cWhite vErrors, Placeholder_text 
+Gui, Add, Text, %space% cWhite vSold, Placeholder_text 
+Gui, Add, Picture, x140 y70, C:\Users\sick\Pictures\logo.png
+Gui, Show, x-30 y150 w500 h200 
+SetTimer, UpdateOSD, 100 
+debug = init_ready
 Gosub, UpdateOSD  	
-Return
+return
 
 UpdateOSD:
 MouseGetPos, MouseX, MouseY
-PixelGetColor, color, %MouseX%, %MouseY% 
-GuiControl,, MyText, X%MouseX%, Y%MouseY% %color%
+PixelGetColor, color, %MouseX%, %MouseY%, RGB
+Guicontrol,, Stat, Status: %status%
+Guicontrol,, Debug, Debug: %debug%
+GuiControl,, MyText, Mouse Pos: X%MouseX%, Y%MouseY% Color: %color%		
 GuiControl,, Attempts, Attempts: %attempts%
 GuiControl,, Errors, Errors: %errors%
 Guicontrol,, Sold, Transf: %sold%
@@ -62,10 +71,11 @@ return
 
 ButtonPause:
 if IsPaused
+	
 {
 	Pause off
 	IsPaused := false
-	GuiControl,, PauseButton, Pause
+     GuiControl,, PauseButton, Pause
 }
 else
 	SetTimer, Pause, 10
@@ -73,131 +83,185 @@ return
 
 Pause:
 SetTimer, Pause, off
-IsPaused := true
+status = Paused
+IsPaused := tru
 GuiControl,, PauseButton, Unpause
 Pause, on
 return
 
-;controls
-F12::ExitApp		;F12 to exit
-F5::Pause			;F5 to pause
-F1::				;F1 to start 
+;╔════════════hotkeys to control the script (note, closing the gui also kills the script)
 
+F1::Goto,Loop		
+F5::Pause	
+F12::ExitApp		
+
+
+;╔════════════main loop
 
 Loop:
-GuiControl,, MyProgress, 10
-GuiControlGet, Debug
-GuiControl,, Debug, Refreshing...
-Click,672,122 Left, 1	;click to refresh listings
-Sleep, 550
+status = RUNNING
+debug = loop_start
 
-Ifloop:
-;we're at the main menu, we should'nt be here. go back to the flea-market
-PixelSearch, FoundX, FoundY, 87,1071,87,1071, 0x9F9D90, 0, Fast, RGB	;searches for single white pixel in the word 'PURCHASE'
-If ErrorLevel = 0
-{
-	Sleep,150
-	Click,1251,1069 Left, 2	;click flea-market
-	Sleep,550	
+;you can uncomment this for testing purposes
+;it makes the script sell the items it buys after only buying a few
+;so you don't have to wait until you have a full inventory or you're out of money 
+;to make sure it is selling your items 
+
+;Sleep,500
+;if attempts = 4
+;{
+;	attempts = 0
+;	goto,sell
+;}
+
+;this checks to see if we're at the main menu and if we are
+;it clicks back to the flea market
+debug = check_mm 
+PixelGetcolor,Pix,429,522,0
+IfEqual,Pix,0x000000
+{	
+	debug = mm_found
+	Sleep,1000
+	Click,1251,1069
+	Sleep,500
+	Goto,check_error
 }
 
-;look for the word 'purchase'
-GuiControl,, MyProgress, 20
-PixelSearch, FoundX, FoundY, 1690, 158, 1817, 192, 0xE9E6D4, 0, Fast, RGB	;searches for single white pixel in the word 'PURCHASE'
+;this checks for a pixel that indicates the word "PURCHASE" is being displayed
+check_prch:
+debug = check_prch
+Sleep,50
+PixelSearch, FoundX, FoundY, 1690, 158, 1817, 192, 0xE9E6D4, 0, Fast, RGB	
 If ErrorLevel = 0
 {	
-	
-	GuiControlGet, Debug
-	GuiControl,, Debug, Buying!
-	attempts++ 
-	;GuiControlGet, Attempts
-	;
-	Sleep, 10
-	Click, 1750, 184 Left, 1
-	Sleep, 50	
-	;Click, 1172, 480 Left, 1	
-	;Sleep, 50
-	Send,{y}
+	debug = buy_1
+	Click, 1750, 184		;if 'PURCHASE' is on the screen, click it
+	Sleep,100
+	debug = send_y
+	Send,{y}				;send the Y key, confirming the purchase
 	SoundBeep, 2000, 100
-	Goto,Loop	
-}
+	attempts++
+	Goto,check_prch		;sometimes we click to quickly and the UI doesn't register it
+}						;this sends us to the top of this function, so it will click again if purchase
+						;is still present, creating a loop that will only be broken if the purchase is not
+						;on the screen. i use this type of loop a lot throughout this script.
 
-Sleep, 10
 
-;look for pixel indicating there is a greyed out offer about to be ready, if true, go back to Top
-GuiControl,, MyProgress, 35
-PixelSearch, FoundX, FoundY, 1690, 158, 1817, 192, 0x42423C, 0, Fast RGB
+;this checks for the error message that indicates we have no more inventory space left
+;if true, it sends us to the 'sell' function
+debug = check_space
+check_space:
+ImageSearch, FoundX, FoundY, 682, 437, 1324, 654, C:\Users\sick\AppData\Roaming\MacroCreator\Screenshots\Screen_20200713074801.png
 If ErrorLevel = 0
 {
-	
-	GuiControlGet, Debug
-	GuiControl,, Debug, Waiting...
-	Goto,Ifloop
+	debug = check_sapce_true
+	Goto,sell
 }
 
-Sleep, 120
-GuiControl,, MyProgress, 50
-;ImageSearch, FoundX, FoundY, 657, 388, 1338, 691, C:\Users\sick\Desktop\mbrrl.png
-PixelSearch, FoundX, FoundY, 139, 194, 139, 194, 0x373733, 0, Fast RGB
-Sell:
-If ErrorLevel = 0
+
+;this checks a pixel that appears when there are 2 'layers' of the grey overlay present, this only occours when both the 
+;you no longer have any money, it makes the appropriate clicks to send us to the dealers
+debug = check_2xolay
+check_2xolay:
+PixelGetcolor,Pix,941,40
+IfEqual,Pix,0x98B6C0
 {
-	GuiControlGet, Debug
-	GuiControl,, Debug, Selling
-	Sleep,1000
-	Click,956, 595 Left, 1	;click Ok
-	Sleep,1000
-	Click,1130,1065 Left, 1	;click 'traders'
-	Sleep,1000	
-	Click,881,416 Left, 1	;click therapist
-	Sleep,1000
-	Click,239,50 Left, 1	;click sell
-	Sleep,1000
-	
-	imgstart: ;search for gas analyzer, if found, click it, repeat until no gasan is found
-	PixelSearch, FoundX, FoundY, 1268, 258, 1910, 1013, 0xFFF04A, 0, Fast RGB
-	If ErrorLevel = 0
-	{
-		GuiControlGet, Debug
-		GuiControl,, Debug, Transferring to trader
-		Send, {Control Down}	;hold Control key
-		Sleep, 100	
-		Click, %FoundX%, %FoundY% Left, 1
-		sold++
-		Sleep, 100	
-		Send, {Control Up}		;release control
-		SendEvent, {Control Up}		;release control
-		Send, {Control Up}		;release control
-		Goto,imgstart
-		Sleep,50
-	}
-	
-	Sleep,500	
-	Click,963,168 Left, 1	
-	Sleep,50
-	Click,963,168 Left, 1	;click sell
-	Sleep,1000
-	Click,1251,1069 Left, 2	;click flea-market
-	Sleep,150
+	debug = 2xolay_detected_true
+	Goto,sell
 }
 
-;look for pixel indicating there is an error overlay active, if true, send Escape to clear it
-GuiControl,, MyProgress, 75
-PixelSearch, FoundX, FoundY, 487, 83, 487, 83, 0xAFAA8B, 20, RGB
-If ErrorLevel = 0
+;this checks for the same grey overlay, but only one layer of it, which only occurs when there is any other error message
+;it sends the escape key to clear the error message, and occasionally sends it twice, which results in us being back 
+;at the main menu, but we check for this earlier in the script so on the next loop, it will  put us back where we need to be.
+
+debug = check_error
+check_error:
+PixelGetcolor,Pix,835,528
+IfEqual,Pix,0x8D9A9C
 {
-	
 	errors++
-	GuiControlGet, Debug
-	GuiControl,, Debug, Error
+	debug = check_error_true
 	Sleep, 100
 	Send,{Escape}
 	SoundBeep, 620, 100
+	Goto,Loop
 }
 
-Sleep, 10
-;look for pixel indicating we are out of money (double overlay active), if true, offload to therapist
-;PixelSearch, FoundX, FoundY, 139, 194, 139, 194, 0x373733, 100, Fast RGB
-GuiControl,, MyProgress, 90
-Goto,Loop
-Return
+;this refreshes the script, notice there is no if statement here, this means it happens every time the script passes
+;this point, in other words, if the script checks all of the above pixels and doesn't find any of them, it clicks
+;the refresh button and starts over
+
+refresh:
+debug = refreshing
+Sleep,200
+Click,672,122
+Sleep,200
+Goto, Loop 		;this Goto,Loop sends it to the top of the script after refreshing, otherwise, it would 
+				;start the 'sell' function beneath this point and we don't want it to do that unless we ask it to
+
+sell:
+debug = sell
+Sleep,500			;this clicks 'ok' on the screen, it's here twice because the damn thing moves sometimes
+Click,961, 563		;the loop i mentioned earlier? we do it a bunch here. that's becuse waiting X amount of time
+Click,960, 585		;won't work here in case the game stutters, so to be quick, and accoutn for that, all of these
+Goto,sell2		;following clicks are in these little if loops, if you see what we wanna click on, do it and move
+				;on to the next click, if not, check again
+
+sell2:
+debug = sell_2			;the debug shows on the gui every one of these loops 
+Sleep,500
+PixelGetcolor,Pix,1249,1059
+IfEqual,Pix,0x909D9F
+{
+	Click,1130,1065	;click 'traders'
+	Goto,sell3
+}
+Goto,sell2
+
+sell3:
+debug = sell_3
+Sleep,500
+PixelGetcolor,Pix,870,421
+IfEqual,Pix,0x819AC8
+{
+	Click,881,416		;click therapist
+	Goto,sell4
+}
+Goto,sell3
+
+sell4:
+debug = sell_4
+Sleep,500
+PixelGetcolor,Pix,205,42
+IfEqual,Pix,0xC1C0BB
+{
+	Sleep,500
+	Click,239,50		;click sell
+	Goto,sell5
+}
+Goto,sell4
+
+
+sell5:
+debug = transfer
+;Sleep,500
+PixelSearch, itemx, itemy, 1268, 260, 1907, 993, 0xACDEE4, , Fast RGB
+If ErrorLevel = 0
+{
+	debug = transfer_lp
+	;#272828	ImageSearch, itemx, itemy, 1268, 260, 1907, 993, *20 C:\Users\sick\desktop\sal.png
+	ImageSearch, destx, desty,  726, 297, 1170, 863, *10 C:\Users\sick\desktop\4way.png
+	MouseClickDrag, left, %itemx%, %itemy%, %destx%, %desty%, 0
+	sellvar++
+	Goto,sell5
+}
+if sellvar = 0
+{
+	Click,1902,731			;this sells your items to the trader, if you've made it this far, 
+	Goto,sell5			;i have to assume you no longer need your hand held. 
+}
+sellvar = 0
+Goto,Sell6
+
+sell6:
+debug 

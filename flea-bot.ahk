@@ -261,7 +261,16 @@ if sellvar = 0
 	Goto,sell5			;i have to assume you no longer need your hand held. 
 }
 sellvar = 0
-Goto,Sell6
 
+Goto,Sell6
 sell6:
-debug 
+debug = sell_6
+Sleep,150
+Click,963,168 Left, 1	;click sell
+Sleep,1000
+Click,1251,1069 Left, 2	;click flea-market
+Sleep,150
+Goto,Loop
+
+exit:
+ExitApp

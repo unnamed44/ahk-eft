@@ -153,7 +153,8 @@ j::
 top:
 Loop
 {
-	ImageSearch, x, y, 0, 0, 1920, 1080, *20 C:\Users\sick\AppData\Roaming\MacroCreator\Screenshots\Screen_20200816154542.png
+	ImageSearch, x, y, 0, 0, 1920, 1080, *20 C:\path\to\this\file.png ->>> https://i.imgur.com/Logw1Mq.png
+					
 	If ErrorLevel = 0
 	{
 		

@@ -1,0 +1,235 @@
+#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
+; #Warn  ; Enable warnings to assist with detecting common errors.
+SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
+SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
+; #Warn  ; Enable warnings to assist with detecting common errors.
+SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
+SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+#SingleInstance,Force
+#include <Vis2>
+
+;msgbox % result						; see result
+; -------------------------------------------------------------------------------------------------------------------------
+; Coco's Jxon_Load function: https://github.com/cocobelgica/AutoHotkey-JSON/blob/master/Jxon.ahk
+Jxon_Load(ByRef src, args*)
+{
+	static q := Chr(34)
+	
+	key := "", is_key := false
+	stack := [ tree := [] ]
+	is_arr := { (tree): 1 }
+	next := q . "{[01234567890-tfn"
+	pos := 0
+	while ( (ch := SubStr(src, ++pos, 1)) != "" )
+	{
+		if InStr(" `t`n`r", ch)
+			continue
+		if !InStr(next, ch, true)
+		{
+			ln := ObjLength(StrSplit(SubStr(src, 1, pos), "`n"))
+			col := pos - InStr(src, "`n",, -(StrLen(src)-pos+1))
+			
+			msg := Format("{}: line {} col {} (char {})"
+			,   (next == "")      ? ["Extra data", ch := SubStr(src, pos)][1]
+			  : (next == "'")     ? "Unterminated string starting at"
+			  : (next == "\")     ? "Invalid \escape"
+			  : (next == ":")     ? "Expecting ':' delimiter"
+			  : (next == q)       ? "Expecting object key enclosed in double quotes"
+			  : (next == q . "}") ? "Expecting object key enclosed in double quotes or object closing '}'"
+			  : (next == ",}")    ? "Expecting ',' delimiter or object closing '}'"
+			  : (next == ",]")    ? "Expecting ',' delimiter or array closing ']'"
+			  : [ "Expecting JSON value(string, number, [true, false, null], object or array)"
+			    , ch := SubStr(src, pos, (SubStr(src, pos)~="[\]\},\s]|$")-1) ][1]
+			, ln, col, pos)
+			
+			throw Exception(msg, -1, ch)
+		}
+		
+		is_array := is_arr[obj := stack[1]]
+		
+		if i := InStr("{[", ch)
+		{
+			val := (proto := args[i]) ? new proto : {}
+			is_array? ObjPush(obj, val) : obj[key] := val
+			ObjInsertAt(stack, 1, val)
+			
+			is_arr[val] := !(is_key := ch == "{")
+			next := q . (is_key ? "}" : "{[]0123456789-tfn")
+		}
+		
+		else if InStr("}]", ch)
+		{
+			ObjRemoveAt(stack, 1)
+			next := stack[1]==tree ? "" : is_arr[stack[1]] ? ",]" : ",}"
+		}
+		
+		else if InStr(",:", ch)
+		{
+			is_key := (!is_array && ch == ",")
+			next := is_key ? q : q . "{[0123456789-tfn"
+		}
+		
+		else ; string | number | true | false | null
+		{
+			if (ch == q) ; string
+			{
+				i := pos
+				while i := InStr(src, q,, i+1)
+				{
+					val := StrReplace(SubStr(src, pos+1, i-pos-1), "\\", "\u005C")
+					static end := A_AhkVersion<"2" ? 0 : -1
+					if (SubStr(val, end) != "\")
+						break
+				}
+				if !i ? (pos--, next := "'") : 0
+					continue
+				
+				pos := i ; update pos
+				
+				val := StrReplace(val,    "\/",  "/")
+				, val := StrReplace(val, "\" . q,    q)
+				, val := StrReplace(val,    "\b", "`b")
+				, val := StrReplace(val,    "\f", "`f")
+				, val := StrReplace(val,    "\n", "`n")
+				, val := StrReplace(val,    "\r", "`r")
+				, val := StrReplace(val,    "\t", "`t")
+				
+				i := 0
+				while i := InStr(val, "\",, i+1)
+				{
+					if (SubStr(val, i+1, 1) != "u") ? (pos -= StrLen(SubStr(val, i)), next := "\") : 0
+						continue 2
+					
+					; \uXXXX - JSON unicode escape sequence
+					xxxx := Abs("0x" . SubStr(val, i+2, 4))
+					if (A_IsUnicode || xxxx < 0x100)
+						val := SubStr(val, 1, i-1) . Chr(xxxx) . SubStr(val, i+6)
+				}
+				
+				if is_key
+				{
+					key := val, next := ":"
+					continue
+				}
+			}
+			
+			else ; number | true | false | null
+			{
+				val := SubStr(src, pos, i := RegExMatch(src, "[\]\},\s]|$",, pos)-pos)
+				
+			; For numerical values, numerify integers and keep floats as is.
+			; I'm not yet sure if I should numerify floats in v2.0-a ...
+				static number := "number", integer := "integer"
+				if val is %number%
+				{
+					if val is %integer%
+						val += 0
+				}
+			; in v1.1, true,false,A_PtrSize,A_IsUnicode,A_Index,A_EventInfo,
+			; SOMETIMES return strings due to certain optimizations. Since it
+			; is just 'SOMETIMES', numerify to be consistent w/ v2.0-a
+				else if (val == "true" || val == "false")
+					val := %value% + 0
+			; AHK_H has built-in null, can't do 'val := %value%' where value == "null"
+			; as it would raise an exception in AHK_H(overriding built-in var)
+				else if (val == "null")
+					val := ""
+			; any other values are invalid, continue to trigger error
+				else if (pos--, next := "#")
+					continue
+				
+				pos += i-1
+			}
+			
+			is_array? ObjPush(obj, val) : obj[key] := val
+			next := obj==tree ? "" : is_array ? ",]" : ",}"
+		}
+	}
+	
+	return tree[1]
+}
+j::
+top:
+Loop
+{
+	ImageSearch, x, y, 0, 0, 1920, 1080, *20 C:\Users\sick\AppData\Roaming\MacroCreator\Screenshots\Screen_20200816154542.png
+	If ErrorLevel = 0
+	{
+		
+		posy := y 
+		posx := x + 20	
+		;MsgBox, %x%,%y%
+		intvalue := OCR([posx, posy, 500, 20])
+		ErrorLevel = 1
+		Goto, pro
+	}	
+	
+}
+;api call "https://tarkov-market.com/api/v1/item?q="
+pro:
+;msgbox,%intvalue%
+result = 
+value = 
+oWhr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+value = https://tarkov-market.com/api/v1/item?q=%intvalue%
+oWhr.Open("GET", value, false)
+oWhr.SetRequestHeader("Content-Type", "application/json")
+
+                                      
+;   MMMMMMMMMMMMMMMMh......----------hMMMMMMMMMMMMMMMM
+;   MMMMMMh         :MMM----------MMM:         hMMMMMM
+;   MMMhyy+         .yyyooo:--:oooyyy.         +yyhMMM
+;   MMM:                MMM+--+MMM                :MMM
+;   MMM:      yyy.      MMM+--+MMM      .yyy      :MMM
+;   MMM:      NMM:      MMM+--+MMM      :MMN      :MMM
+;   MMM:                MMM+--+MMM                :MMM 
+;   NNNo//-         `///hhh/--/hhh///`         -//oNNN
+;   hhhNMMh         :MMM----------MMM:         hMMNhhh
+;   hhho++oyyyyyyyyysoo+----------+oosyyyyyyyyysooshhh
+;   hhh/../MMMMMMMMMh----------------hMMMMMMMMMo::+hhh                                      
+; _____ _____ _____ ____     _____ _____ __    _____ _ _ _ 
+;| __  |   __|  _  |    \   | __  |   __|  |  |     | | | |
+;|    -|   __|     |  |  |  | __ -|   __|  |__|  |  | | | |
+;|__|__|_____|__|__|____/   |_____|_____|_____|_____|_____|
+;                                                          
+;  YOU MUST BUY YOUR OWN API KEY FROM TARKOV-MARKET
+;  AND PASTE THE API KEY IN THE LINE BELOW FOR THIS
+;  TO WORK.      https://tarkov-market.com/
+;
+oWhr.SetRequestHeader("x-api-key", "YOUR API KEY GOES HERE")
+oWhr.Send()
+
+;MsgBox, % oWhr.ResponseText
+FileDelete,json.txt
+FileAppend,% oWhr.ResponseText,json.txt,
+
+Fileread, file, json.txt			; read string into a variable, from a file like here or directly coming from the API
+;msgbox % file						; the variable now contains one long string
+arr := Jxon_Load(file)				; Jxon_Load loads the string into an AHK object
+
+for each, obj in arr				; loop through all json objects in your array and concat the relevant field data
+	result .= "" obj.shortname "`nPrice: " ThousandsSep(obj.price) " Ᵽ `n1d avg: " ThousandsSep(obj.avg24hPrice) " Ᵽ`n7d avg: " ThousandsSep(obj.avg7daysPrice) " Ᵽ`nTrader: " obj.traderName "`nTraderPrice: " obj.traderPrice " Ᵽ`n"	; get the data and arrange it 
+
+;Open empty gui
+Gui, Destroy
+space = y+1
+Gui Color, 0E0E10
+Gui Show, w175 h150 x4 y300 NA, Window
+WinSet, Transparent, 250, Window,
+WinSet, Region, 0-0 W175 H500 , Window
+Gui, +ToolWindow -Caption +AlwaysOnTop +Owner 
+Gui, Font, s8, Segoe UI
+Gui, Add, Text,%space%  cYellow, Price Grabber by BUDDGAF
+Gui, Font, s10, Blender Pro
+Gui, Add, Text,%space% y+10 cWhite, Item Info:
+Gui, Add, Text,  cWhite ,% result
+Sleep,4000
+Gui,Destroy
+Goto, top
+
+F11::ExitApp
+
+ThousandsSep(x, s=",") {
+	return RegExReplace(x, "\G\d+?(?=(\d{3})+(?:\D|$))", "$0" s)
+}

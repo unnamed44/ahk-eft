@@ -22,7 +22,7 @@ Jxon_Load(ByRef src, args*)
 	next := q . "{[01234567890-tfn"
 	pos := 0
 	while ( (ch := SubStr(src, ++pos, 1)) != "" )
-	{
+	{	
 		if InStr(" `t`n`r", ch)
 			continue
 		if !InStr(next, ch, true)
@@ -149,58 +149,40 @@ Jxon_Load(ByRef src, args*)
 	
 	return tree[1]
 }
-j::
+MButton::	
 top:
-Loop
-{
-	ImageSearch, x, y, 0, 0, 1920, 1080, *20 C:\path\to\this\file.png ->>> https://i.imgur.com/Logw1Mq.png
-					
+;SoundBeep, 500,50
+
+	ImageSearch, x, y, 0, 0, 1920, 1080, *30 C:\Users\sick\Desktop\tiny_mag.png
 	If ErrorLevel = 0
 	{
-		
-		posy := y 
-		posx := x + 20	
 		;MsgBox, %x%,%y%
+		posy := y + 0
+		posx := x + 20
 		intvalue := OCR([posx, posy, 500, 20])
 		ErrorLevel = 1
+		;msgbox, %posx%, %posy%
 		Goto, pro
-	}	
-	
-}
+}	
+else
+	return
+
+
 ;api call "https://tarkov-market.com/api/v1/item?q="
 pro:
-;msgbox,%intvalue%
+;Msgbox,%intvalue%
 result = 
 value = 
+price_diff1 =
+price_diff =
+market_gain =
 oWhr := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 value = https://tarkov-market.com/api/v1/item?q=%intvalue%
 oWhr.Open("GET", value, false)
 oWhr.SetRequestHeader("Content-Type", "application/json")
-
-                                      
-;   MMMMMMMMMMMMMMMMh......----------hMMMMMMMMMMMMMMMM
-;   MMMMMMh         :MMM----------MMM:         hMMMMMM
-;   MMMhyy+         .yyyooo:--:oooyyy.         +yyhMMM
-;   MMM:                MMM+--+MMM                :MMM
-;   MMM:      yyy.      MMM+--+MMM      .yyy      :MMM
-;   MMM:      NMM:      MMM+--+MMM      :MMN      :MMM
-;   MMM:                MMM+--+MMM                :MMM 
-;   NNNo//-         `///hhh/--/hhh///`         -//oNNN
-;   hhhNMMh         :MMM----------MMM:         hMMNhhh
-;   hhho++oyyyyyyyyysoo+----------+oosyyyyyyyyysooshhh
-;   hhh/../MMMMMMMMMh----------------hMMMMMMMMMo::+hhh                                      
-; _____ _____ _____ ____     _____ _____ __    _____ _ _ _ 
-;| __  |   __|  _  |    \   | __  |   __|  |  |     | | | |
-;|    -|   __|     |  |  |  | __ -|   __|  |__|  |  | | | |
-;|__|__|_____|__|__|____/   |_____|_____|_____|_____|_____|
-;                                                          
-;  YOU MUST BUY YOUR OWN API KEY FROM TARKOV-MARKET
-;  AND PASTE THE API KEY IN THE LINE BELOW FOR THIS
-;  TO WORK.      https://tarkov-market.com/
-;
 oWhr.SetRequestHeader("x-api-key", "YOUR API KEY GOES HERE")
 oWhr.Send()
-
+price_diff := obj.traderPrice - obj.price
 ;MsgBox, % oWhr.ResponseText
 FileDelete,json.txt
 FileAppend,% oWhr.ResponseText,json.txt,
@@ -210,24 +192,41 @@ Fileread, file, json.txt			; read string into a variable, from a file like here 
 arr := Jxon_Load(file)				; Jxon_Load loads the string into an AHK object
 
 for each, obj in arr				; loop through all json objects in your array and concat the relevant field data
-	result .= "" obj.shortname "`nPrice: " ThousandsSep(obj.price) " Ᵽ `n1d avg: " ThousandsSep(obj.avg24hPrice) " Ᵽ`n7d avg: " ThousandsSep(obj.avg7daysPrice) " Ᵽ`nTrader: " obj.traderName "`nTraderPrice: " obj.traderPrice " Ᵽ`n"	; get the data and arrange it 
+	result3 := 	
+result2 := 
+market_gain := obj.price - obj.traderPrice
+IfGreater, market_gain, 0 
+color = cGreen
+else
+	color = cRed
 
+result3 .= obj.shortname
+result .= "Trader: " obj.traderName "`nPrice:  Ᵽ " ThousandsSep(obj.price) "`nTraderPrice: Ᵽ " ThousandsSep(obj.traderPrice) "" ;get the data and arrange it 
+result2 .= " Ᵽ " ThousandsSep(market_gain)""
+
+;`n1d avg: " ThousandsSep(obj.avg24hPrice) " Ᵽ`n7d avg: " ThousandsSep(obj.avg7daysPrice) " Ᵽ
 ;Open empty gui
 Gui, Destroy
 space = y+1
 Gui Color, 0E0E10
-Gui Show, w175 h150 x4 y300 NA, Window
+Gui Show, w175 h160 x4 y300 NA, Window
 WinSet, Transparent, 250, Window,
 WinSet, Region, 0-0 W175 H500 , Window
 Gui, +ToolWindow -Caption +AlwaysOnTop +Owner 
-Gui, Font, s8, Segoe UI
-Gui, Add, Text,%space%  cYellow, Price Grabber by BUDDGAF
-Gui, Font, s10, Blender Pro
-Gui, Add, Text,%space% y+10 cWhite, Item Info:
-Gui, Add, Text,  cWhite ,% result
+Gui, Font, s10, Segoe UI
+Gui, Add, Text,%space%  cYellow, EFT-MP for 0.12.7 
+;Gui, Font, s10, Blender Pro
+Gui, Font, s12, Segoe UI
+Gui, Add, Text, cWhite y+10 ,% result3
+Gui, Font, s10, Segoe UI
+Gui, Add, Text, cWhite y+10 ,% result
+Gui, Add, Text, cWhite y+10, Market Gain:
+Gui, font, s20, Blender Pro
+Gui, add, Text, %color% y+0,% result2
+;Gui, Add, Text,%space% cWhite, Flea Market Gain: ThousandsSep(price_diff1)
 Sleep,4000
 Gui,Destroy
-Goto, top
+return
 
 F11::ExitApp
 

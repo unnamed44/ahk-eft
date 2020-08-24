@@ -1,276 +1,601 @@
 
-;╔════════════environment settings
-
 #NoEnv
-#Warn
+#include Vis2.ahk
+;MsgBox % OCR("https://i.stack.imgur.com/sFPWe.png")
+#Include Lib\FindText.ahk
+SetWorkingDir %A_ScriptDir%
+SendMode Input
 #SingleInstance Force
-SetWorkingDir %A_ScriptDir% 
-Thread, interrupt, 0
-CoordMode, Pixel, Screen
-;SetBatchLines,10ms
-;SetMouseDelay,-1
+SetTitleMatchMode 2
+#WinActivateForce
+SetControlDelay 1
+SetWinDelay 0
+SetKeyDelay -1
+SetMouseDelay -1
+SetBatchLines -1
+Random, rando, 200, 200
+CoordMode, Pixel, Window
 
 
-;╔════════════variables, strings, whatever
-
-attempts := 0
-errors := 0
-sold := 0
-space = y+5 
-IsPaused := false
-status = Ready
-debug = debug_ready
-sellvar = 0
+global XX = 0
+global YY = 0
+posx1 = 0
+posy1 = 0
 
 
-;╔════════════the GUI
-
-MouseGetPos, MouseX, MouseY
-PixelGetColor, color, %MouseX%, %MouseY%, RGB
-;Gui, Font,  0xFFFFFF, Verdana
-;Gui, +AlwaysOnTop ;-Caption +ToolWindow 0x800000
-;WinSet,TransColor, 0x00000 100
-Gui Color, 0E0E10
-Gui Show, w1290 h500 x1920 y1200 NA, Window
-WinSet, Transparent, 250, Window,
-WinSet, Region, 20-2 W255 H500 R10-10, Window
-Gui, +ToolWindow -Caption +AlwaysOnTop
-Gui, Color, 0x000000
-;CustomColor := "000000"  ; Can be any RGB color (it will be made transparent below).
-;Gui +LastFound +AlwaysOnTop -Caption +ToolWindow  ; +ToolWindow avoids a taskbar button and an alt-tab menu item.
-;Gui, Color, %CustomColor%
-Gui, Add, Text, %space% x50 cYellow, FLEA-BOT 1.3 for EFT 0.12.6 by BUDDGAF
-Gui, Add, Button, x190 w65 vPauseButton, Pause
-Gui, Add, Button, yp xp+80 x120 w65 vStop gExit Default, Stop
-Gui, Add, Button, yp x50 w65 vStart gLoop, Start
-;Gui, Add, Text, cWhite, Cursor Pos\Color: 
-Gui, Add, Text, %space% vMyText cWhite, Placeholder_text,Placeholder_text,Placeholder_text,
-Gui, Add, Text, %space% cRed vStat, Placeholder_text,Placeholder_text,
-Gui, Add, Text, %space% cWhite vDebug, Placeholder_text,Placeholder_text
-Gui, Add, Text, %space% cYellow, Session Stats: 
-Gui, Add, Text, %space% cWhite vAttempts, Placeholder_text,
-Gui, Add, Text, %space% cWhite vErrors, Placeholder_text 
-Gui, Add, Text, %space% cWhite vSold, Placeholder_text 
-Gui, Add, Picture, x140 y70, C:\Users\sick\Pictures\logo.png
-Gui, Show, x-30 y150 w500 h200 
-SetTimer, UpdateOSD, 100 
-debug = init_ready
-Gosub, UpdateOSD  	
+Gui +LastFound +AlwaysOnTop -Caption +ToolWindow 
+Gui, Color, #000000
+Gui, Font, s10  
+Gui, Add, Text, vMyText cWhite, XXXXXXXXXXXXXXXXXXXXXXXXXX 
+SetTimer, UpdateOSD, 200
+Gosub, UpdateOSD  
+Gui, Show, x20 y330 NoActivate 
 return
+
+
+
 
 UpdateOSD:
-MouseGetPos, MouseX, MouseY
-PixelGetColor, color, %MouseX%, %MouseY%, RGB
-Guicontrol,, Stat, Status: %status%
-Guicontrol,, Debug, Debug: %debug%
-GuiControl,, MyText, Mouse Pos: X%MouseX%, Y%MouseY% Color: %color%		
-GuiControl,, Attempts, Attempts: %attempts%
-GuiControl,, Errors, Errors: %errors%
-Guicontrol,, Sold, Transf: %sold%
+GuiControl,, MyText, Debug: %dbug%
 return
 
-ButtonPause:
-if IsPaused
-	
-{
-	Pause off
-	IsPaused := false
-     GuiControl,, PauseButton, Pause
-}
-else
-	SetTimer, Pause, 10
-return
 
-Pause:
-SetTimer, Pause, off
-status = Paused
-IsPaused := tru
-GuiControl,, PauseButton, Unpause
-Pause, on
-return
-
-;╔════════════hotkeys to control the script (note, closing the gui also kills the script)
-
-F1::Goto,Loop		
-F5::Pause	
-F12::ExitApp		
+F5::Pause
+F12::ExitApp
+F1::Goto,main
 
 
-;╔════════════main loop
+main:
 
-Loop:
-status = RUNNING
-debug = loop_start
-
-;you can uncomment this for testing purposes
-;it makes the script sell the items it buys after only buying a few
-;so you don't have to wait until you have a full inventory or you're out of money 
-;to make sure it is selling your items 
-
-;Sleep,500
-;if attempts = 4
-;{
-;	attempts = 0
-;	goto,sell
-;}
-
-;this checks to see if we're at the main menu and if we are
-;it clicks back to the flea market
-debug = check_mm 
-PixelGetcolor,Pix,429,522,0
-IfEqual,Pix,0x000000
-{	
-	debug = mm_found
-	Sleep,1000
-	Click,1251,1069
-	Sleep,500
-	Goto,check_error
-}
-
-;this checks for a pixel that indicates the word "PURCHASE" is being displayed
-check_prch:
-debug = check_prch
+state_check()
 Sleep,50
-PixelSearch, FoundX, FoundY, 1690, 158, 1817, 192, 0xE9E6D4, 0, Fast, RGB	
-If ErrorLevel = 0
-{	
-	debug = buy_1
-	Click, 1750, 184		;if 'PURCHASE' is on the screen, click it
-	Sleep,100
-	debug = send_y
-	Send,{y}				;send the Y key, confirming the purchase
-	SoundBeep, 2000, 100
-	attempts++
-	Goto,check_prch		;sometimes we click to quickly and the UI doesn't register it
-}						;this sends us to the top of this function, so it will click again if purchase
-						;is still present, creating a loop that will only be broken if the purchase is not
-						;on the screen. i use this type of loop a lot throughout this script.
+purchase_check()
+Sleep,50
+refresh()
+Sleep,50
+Goto,main
 
 
-;this checks for the error message that indicates we have no more inventory space left
-;if true, it sends us to the 'sell' function
-debug = check_space
-check_space:
-ImageSearch, FoundX, FoundY, 682, 437, 1324, 654, C:\Users\sick\AppData\Roaming\MacroCreator\Screenshots\Screen_20200713074801.png
-If ErrorLevel = 0
+state_check()
+
 {
-	debug = check_sapce_true
-	Goto,sell
-}
-
-
-;this checks a pixel that appears when there are 2 'layers' of the grey overlay present, this only occours when both the 
-;you no longer have any money, it makes the appropriate clicks to send us to the dealers
-debug = check_2xolay
-check_2xolay:
-PixelGetcolor,Pix,941,40
-IfEqual,Pix,0x98B6C0
-{
-	debug = 2xolay_detected_true
-	Goto,sell
-}
-
-;this checks for the same grey overlay, but only one layer of it, which only occurs when there is any other error message
-;it sends the escape key to clear the error message, and occasionally sends it twice, which results in us being back 
-;at the main menu, but we check for this earlier in the script so on the next loop, it will  put us back where we need to be.
-
-debug = check_error
-check_error:
-PixelGetcolor,Pix,835,528
-IfEqual,Pix,0x8D9A9C
-{
-	errors++
-	debug = check_error_true
-	Sleep, 100
-	Send,{Escape}
-	SoundBeep, 620, 100
-	Goto,Loop
-}
-
-;this refreshes the script, notice there is no if statement here, this means it happens every time the script passes
-;this point, in other words, if the script checks all of the above pixels and doesn't find any of them, it clicks
-;the refresh button and starts over
-
-refresh:
-debug = refreshing
-Sleep,200
-Click,672,122
-Sleep,200
-Goto, Loop 		;this Goto,Loop sends it to the top of the script after refreshing, otherwise, it would 
-				;start the 'sell' function beneath this point and we don't want it to do that unless we ask it to
-
-sell:
-debug = sell
-Sleep,500			;this clicks 'ok' on the screen, it's here twice because the damn thing moves sometimes
-Click,961, 563		;the loop i mentioned earlier? we do it a bunch here. that's becuse waiting X amount of time
-Click,960, 585		;won't work here in case the game stutters, so to be quick, and accoutn for that, all of these
-Goto,sell2		;following clicks are in these little if loops, if you see what we wanna click on, do it and move
-				;on to the next click, if not, check again
-
-sell2:
-debug = sell_2			;the debug shows on the gui every one of these loops 
-Sleep,500
-PixelGetcolor,Pix,1249,1059
-IfEqual,Pix,0x909D9F
-{
-	Click,1130,1065	;click 'traders'
-	Goto,sell3
-}
-Goto,sell2
-
-sell3:
-debug = sell_3
-Sleep,500
-PixelGetcolor,Pix,870,421
-IfEqual,Pix,0x819AC8
-{
-	Click,881,416		;click therapist
-	Goto,sell4
-}
-Goto,sell3
-
-sell4:
-debug = sell_4
-Sleep,500
-PixelGetcolor,Pix,205,42
-IfEqual,Pix,0xC1C0BB
-{
-	Sleep,500
-	Click,239,50		;click sell
-	Goto,sell5
-}
-Goto,sell4
-
-
-sell5:
-debug = transfer
-;Sleep,500
-PixelSearch, itemx, itemy, 1268, 260, 1907, 993, 0xACDEE4, , Fast RGB
-If ErrorLevel = 0
-{
-	debug = transfer_lp
-	;#272828	ImageSearch, itemx, itemy, 1268, 260, 1907, 993, *20 C:\Users\sick\desktop\sal.png
-	ImageSearch, destx, desty,  726, 297, 1170, 863, *10 C:\Users\sick\desktop\4way.png
-	MouseClickDrag, left, %itemx%, %itemy%, %destx%, %desty%, 0
-	sellvar++
-	Goto,sell5
-}
-if sellvar = 0
-{
-	Click,1902,731			;this sells your items to the trader, if you've made it this far, 
-	Goto,sell5			;i have to assume you no longer need your hand held. 
-}
-sellvar = 0
-
-Goto,Sell6
-sell6:
-debug = sell_6
-Sleep,150
-Click,963,168 Left, 1	;click sell
-Sleep,1000
-Click,1251,1069 Left, 2	;click flea-market
-Sleep,150
-Goto,Loop
-
-exit:
-ExitApp
+	dbug = state_check
+	PixelGetColor, pix, 437, 541, RGB, Fast	
+	IfEqual, pix, 0x000000						;main menu
+	{
+		PixelGetColor, pix, 975, 643, RGB, Fast	
+		IfEqual, pix, 0xE7E5D4
+		{
+			Click, 1250,1065
+			Sleep,200	
+		}
+		
+	}
+	
+	
+	ImageSearch, FoundX, FoundY, 686, 447, 844, 529, C:\Users\sick\AppData\Roaming\MacroCreator\Screenshots\Screen_20200824050746.png
+	If ErrorLevel = 0
+	{
+		sell()
+	}
+		
+		
+	PixelGetColor, pix, 935, 28, RGB, Fast
+	IfEqual, pix, 0xCCC4A5
+	{
+		sell()
+	}
+		
+		PixelGetColor, pix, 940, 35, RGB, Fast			;grey overlay
+		IfEqual, pix, 0xBFBFBF
+		{
+			PixelGetColor, pix, 760, 485, RGB, Fast 	;already purchased		
+			IfEqual, pix, 0xE1E1E1
+			{
+				Send,{Escape}
+			}
+			Send,{Escape}
+		}
+		
+		
+		
+		PixelGetcolor, Pix, 941, 40 					;2x overlay present
+		IfEqual, Pix, 0x98B6C0
+		{
+			sell()
+		}
+		
+		ImageSearch XX, YY, 0,0,1920,1080, *50 img/2655.png
+		If ErrorLevel = 0 
+		{
+			read_ocr()
+		}
+		
+	}
+	
+	refresh()
+	{	
+		dbug = refresh
+		click, 675, 127
+	}
+	
+	purchase_check()
+	{
+		dbug = purchase_check
+		PixelSearch, pix, piy,1754,183,1754,183, 0xD1D0BF, 	30 RGB, Fast
+		If ErrorLevel = 0
+		{
+			Click, 1750, 184 Left, 2					;if pixel is found, click PURCHASE
+			Sleep,100
+			Send,{y}								;type 'Y'	
+		}
+	}
+	
+	
+	read_ocr()
+	
+	{ 				;solve the captcha, etc
+		
+		dbug = read_ocr
+		posy1 := YY+67
+		posx1 := XX-397
+		intvalue := OCR([posx1, posy1, 350, 38])
+		
+		
+		if InStr(intvalue, "Coffee")
+		{
+			itempic = img\1059.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "painkillers")
+		{
+			itempic = img\1811.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "WD-")
+		{
+			itempic = img\3405.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "foam")
+		{
+			itempic = img\0342.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "T-Shaped")
+		{
+			itempic = img\1406.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "rooster")
+		{
+			itempic = img\1532.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "crowbar")
+		{
+			itempic = img\1943.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "chain")
+		{
+			itempic = img\4145.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Wrench")
+		{
+			itempic = img\4217.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "sugar")
+		{
+			itempic = img\4320.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Grizzly")
+		{
+			itempic = img\4414.png
+			Gosub, yoy
+		}	
+		if InStr(intvalue, "Balm")
+		{
+			itempic = img\4450.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "AI-2")
+		{
+			itempic = img\4557.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Eagle")
+		{
+			itempic = img\4708.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Alyonka")
+		{
+			itempic = img\4747.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "propane")
+		{
+			itempic = img\4820.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "bandage")
+		{
+			itempic = img\4913.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Screwdriver")
+		{
+			itempic = img\4950.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "moonshine")
+		{
+			itempic = img\5028.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Toilet")
+		{
+			itempic = img\5059.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "injector")
+		{
+			itempic = img\5134.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Vaseline")
+		{
+			itempic = img\5315.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "beef")
+		{
+			itempic = img\5359.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "battery")
+		{
+			itempic = img\5511.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Rod")
+		{
+			itempic = img\5616.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Sodium")
+		{
+			itempic = img\5659.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "teapot")
+		{
+			itempic = img\5737.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Bronze")
+		{
+			itempic = img\5818.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "tank")
+		{
+			itempic = img\5847.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Salewa")
+		{
+			itempic = img\5922.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Zibbo")
+		{
+			itempic = img\5952.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Bolts")
+		{
+			itempic = img\0045.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "analyzer")
+		{
+			itempic = img\0134.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Blend")
+		{
+			itempic = img\0209.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Insulating")
+		{
+			itempic = img\0323.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Rebel")
+		{
+			itempic = img\0424.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "bottle")
+		{
+			itempic = img\0503.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Condensed")
+		{
+			itempic = img\0613.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Horse")
+		{
+			itempic = img\0725.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Printer")
+		{
+			itempic = img\0822.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Strike")
+		{
+			itempic = img\0907.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "drill")
+		{
+			itempic = img\0959.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Pliers")
+		{
+			itempic = img\1303.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Broken")
+		{
+			itempic = img\1419.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Spark")
+		{
+			itempic = img\1644.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "splint")
+		{
+			itempic = img\2123.png
+			Gosub, yoy
+		}
+		
+		if InStr(intvalue, "Graphics")
+		{
+			itempic = img\4901.png
+			
+			
+			Gosub, yoy
+		}
+		
+		Yoy:
+		{
+			Lopc := 0
+			Loop, 
+			{
+				Sleep, 50
+				ImageSearch, FoundX, FoundY, 0, 0, 1920, 1080, *44 %itempic%
+				If ErrorLevel = 0
+				{
+					Click, %FoundX%, %FoundY%, 1
+				}
+				if ErrorLevel
+				{
+					Lopc += 1
+				}
+				if Lopc = 5
+				{
+					Break
+				}
+				
+			}
+			ImageSearch, FoundX, FoundY, 554, 438, 1365, 981, *80 img\1814.png
+			If ErrorLevel = 0
+			{
+				Click, %FoundX%, %FoundY%, 1
+				Sleep, 1000
+			}
+		}
+		Return
+	}
+	
+	sell()
+	{
+		SoundBeep,700,60
+		sell:
+		Click, 961, 563			;click ok 
+		Click, 960, 585		
+		
+		
+		sell2:
+		Text:="|<>*74$62.0w1txzUQ3kE70STTs20M1wrzXryzbqzTBzkxzjtxjrnTxjTvyTNxwkDNry1br7TA3aRzUM1wLnTs7Tvy0zlwry1ryzazyTBzDBzjtrzbrTrvTvySvk3k5yk60bq1U"
+		if (ok:=FindText(1128-150000, 1064-150000, 1128+150000, 1064+150000, 0, 0, Text))
+		{
+			Click, 1130, 1065, 1		;click 'traders'
+			Goto, sell3
+		}
+		Goto, sell2
+		
+		sell3:
+		Text:="|<>0xC6C4B2@1.00$71.0000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000EV00001020000044800004E00008000000U000E0008000E000000800004000000000000000000110000002000U0000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+		if (ok:=FindText(876-150000, 487-150000, 876+150000, 487+150000, 0, 0, Text))
+		{
+			Click, 881, 416, 1		;click therapist
+			Goto, sell4
+		}
+		Goto, sell3
+		
+		sell4:
+		
+		Text:="|<>**50$37.Tzzy3kQ7UR18BzzuUY7UG1EG3Q/xc91noWo4USS1+2E3rTh180TY6UY7xrzTvzEt3cR3ko1wC1Tnzzzzk"
+		
+		if (ok:=FindText(239-150000, 42-150000, 239+150000, 42+150000, 0, 0, Text))
+		{
+			X:=ok.1.x, Y:=ok.1.y	;click sell
+			Click, %X%, %Y%
+			Goto, prefilter
+		}
+		Goto, sell4
+		
+		
+		prefilter:
+		ImageSearch, destx, desty, 742, 292, 1195, 919, *10 C:\Users\sick\Desktop\4way.png
+		if ErrorLevel != 0
+			Goto, prefilter
+		Else
+		{
+			
+			sell5:
+			if pass > 20
+			{
+				pass := 0
+				Goto, accept_payment
+			}
+			
+			ImageSearch, destx, desty, 742, 292, 1195, 919, *10 C:\Users\sick\Desktop\4way.png
+			
+		;destx = 730
+		;desty = 300
+		;top:
+		;MouseMove, %destx%, %desty%, 30
+		;if destx < 1180
+		;{
+			;destx ++ 30	
+		;}
+		;Else
+		;{
+			;destx = 730
+			;desty ++ 30
+		;}
+		;if desty > 960
+		;MsgBox, done
+		;Goto, top
+			
+			
+			
+			PixelSearch, itemx, itemy, 1271, 257, 1907, 1001, 0xFF7074, 0, Fast RGB
+			If ErrorLevel = 0
+			{
+				
+				SetMouseDelay, 2
+				Mousemove, %itemx%, %itemy%,
+				Sleep,50
+				Click, down
+				Sleep,50
+				Mousemove, %destx%, %desty%,
+				Sleep,50
+				Click, up
+				Goto,sell5
+			}
+			Else
+			{
+				pass ++
+				
+				loop, 1
+				{
+					Click, 1604, 866 Left, 0
+					Click, WheelDown, 1
+					
+				}	
+				
+				Goto, sell5
+				
+				
+				
+				
+		;Text:="|<>*24$9.xzjxzj05+Ih+Ig"
+				
+		;'if (ok:=FindText(723, 287, 1185, 931, 0, 0, Text))
+				{
+			;CoordMode, Mouse
+			;destx:=ok.1.x, desty:=ok.1.y
+					
+				}
+				
+				
+				
+		;Imagesearch, destx, desty, 705, 262, 1215, 950, img\%filter_s%.png
+		;MsgBox, %filter_s%.png
+				
+				
+		;filter:
+				
+				
+				
+		;MouseClickDrag, left, %itemx%, %itemy%, %destx%, %desty%, 20
+				Goto, sell5
+			}
+			
+			
+			accept_payment:
+			Sleep, 150
+			Click, 963, 168 Left, 1	;click sell
+			Sleep, 1000
+			Click, 1251, 1069 Left, 2	;click flea-market
+			Sleep, 150
+			
+			SetMouseDelay, -1
+			return	
+			
+			
+		}
+		
+		
+	}
